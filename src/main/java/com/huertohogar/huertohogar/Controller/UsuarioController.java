@@ -1,8 +1,8 @@
 package com.huertohogar.huertohogar.Controller;
 
 import com.huertohogar.huertohogar.Model.Usuario;
-import com.huertohogar.huertohogar.Service.UsuarioService;
 import com.huertohogar.huertohogar.Repository.UsuarioRepository;
+import com.huertohogar.huertohogar.Service.UsuarioService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,7 +41,7 @@ public class UsuarioController {
     }
 
     // =========================
-    // POST /api/usuarios   👈 FIX CLAVE PARA LOS TESTS
+    // POST /api/usuarios
     // =========================
     @PostMapping
     public ResponseEntity<?> registrarDirecto(@RequestBody Usuario usuario) {
@@ -63,7 +63,7 @@ public class UsuarioController {
     }
 
     // =========================
-    // POST /api/usuarios/registrar (se mantiene)
+    // POST /api/usuarios/registrar
     // =========================
     @PostMapping("/registrar")
     public ResponseEntity<?> registrar(@RequestBody Usuario usuario) {
@@ -72,6 +72,7 @@ public class UsuarioController {
 
     // =========================
     // PUT /api/usuarios/{id}
+    // (editar datos del perfil)
     // =========================
     @PutMapping("/{id}")
     public ResponseEntity<Usuario> actualizar(
@@ -88,6 +89,43 @@ public class UsuarioController {
                     return ResponseEntity.ok(usuarioRepository.save(u));
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    // =========================
+    // PATCH /api/usuarios/{id}/bloqueado
+    // (BLOQUEAR / DESBLOQUEAR - FIX DEFINITIVO)
+    // =========================
+    @PatchMapping("/{id}/bloqueado")
+    public ResponseEntity<Usuario> cambiarBloqueado(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> body) {
+
+        if (!body.containsKey("bloqueado")) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        return usuarioRepository.findById(id)
+                .map(usuario -> {
+                    usuario.setBloqueado(body.get("bloqueado"));
+                    Usuario actualizado = usuarioRepository.save(usuario);
+                    return ResponseEntity.ok(actualizado);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // =========================
+    // PUT /api/usuarios/{id}/password
+    // =========================
+    @PutMapping("/{id}/password")
+    public ResponseEntity<?> cambiarPassword(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+
+        return service.cambiarPassword(
+                id,
+                body.get("passwordActual"),
+                body.get("passwordNueva")
+        );
     }
 
     // =========================
@@ -112,46 +150,16 @@ public class UsuarioController {
     }
 
     // =========================
-    // PUT /api/usuarios/{id}/password
-    // =========================
-    @PutMapping("/{id}/password")
-    public ResponseEntity<?> cambiarPassword(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-
-        return service.cambiarPassword(
-                id,
-                body.get("passwordActual"),
-                body.get("passwordNueva")
-        );
-    }
-
-    // =========================
     // DELETE /api/usuarios/{id}
     // =========================
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
+
         if (!usuarioRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
+
         usuarioRepository.deleteById(id);
         return ResponseEntity.ok("Usuario eliminado");
-    }
-
-    // =========================
-    // PUT /api/usuarios/{id}/bloqueo
-    // =========================
-    @PutMapping("/{id}/bloqueo")
-    public ResponseEntity<?> cambiarBloqueo(
-            @PathVariable Long id,
-            @RequestBody Map<String, Boolean> body) {
-
-        return usuarioRepository.findById(id)
-                .map(u -> {
-                    u.setBloqueado(body.get("bloqueado"));
-                    usuarioRepository.save(u);
-                    return ResponseEntity.ok(u);
-                })
-                .orElse(ResponseEntity.notFound().build());
     }
 }
