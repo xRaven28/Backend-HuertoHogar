@@ -1,101 +1,124 @@
 package com.huertohogar.huertohogar.Controller;
 
 import com.huertohogar.huertohogar.Model.Producto;
-import com.huertohogar.huertohogar.Repository.ProductoRepository;
+import com.huertohogar.huertohogar.Service.ProductoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/productos")
 @CrossOrigin(origins = { "http://localhost:5173", "http://localhost:3000" })
 public class ProductoController {
 
-    private final ProductoRepository productoRepository;
+    private final ProductoService productoService;
 
-    public ProductoController(ProductoRepository productoRepository) {
-        this.productoRepository = productoRepository;
+    public ProductoController(ProductoService productoService) {
+        this.productoService = productoService;
     }
 
+    // =========================
+    // GET /api/productos
+    // =========================
     @GetMapping
-    public List<Producto> listar() {
-        return productoRepository.findAll();
+    public ResponseEntity<List<Producto>> listar() {
+        return ResponseEntity.ok(productoService.listar());
     }
 
+    // =========================
+    // GET /api/productos/{id}
+    // =========================
     @GetMapping("/{id}")
     public ResponseEntity<Producto> obtener(@PathVariable Long id) {
-        Optional<Producto> producto = productoRepository.findById(id);
-        return producto.map(ResponseEntity::ok)
+        return productoService.obtenerPorId(id)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    // =========================
+    // POST /api/productos
+    // =========================
     @PostMapping
-    public Producto crear(@RequestBody Producto p) {
-        p.setId(null);
-        return productoRepository.save(p);
-    }
+    public ResponseEntity<?> crear(@RequestBody(required = false) Producto producto) {
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Producto> actualizar(
-            @PathVariable Long id,
-            @RequestBody Producto datos) {
-
-        Optional<Producto> productoOpt = productoRepository.findById(id);
-        if (productoOpt.isPresent()) {
-            Producto p = productoOpt.get();
-
-            p.setName(datos.getName());
-            p.setPrecio(datos.getPrecio());
-            p.setCategoria(datos.getCategoria());
-            p.setDescripcion(datos.getDescripcion());
-            p.setCompania(datos.getCompania());
-            p.setImg(datos.getImg());
-            p.setHabilitado(datos.isHabilitado());
-            p.setOferta(datos.isOferta());
-            p.setDescuento(datos.getDescuento());
-
-            Producto productoActualizado = productoRepository.save(p);
-            return ResponseEntity.ok(productoActualizado);
+        // 🔴 VALIDACIÓN CLAVE (sube cobertura y arregla tests)
+        if (producto == null ||
+            producto.getName() == null || producto.getName().isBlank() ||
+            producto.getPrecio() == null || producto.getPrecio() <= 0) {
+            return ResponseEntity.badRequest().body("Datos de producto inválidos");
         }
-        return ResponseEntity.notFound().build();
+
+        try {
+            Producto guardado = productoService.guardar(producto);
+            return ResponseEntity.ok(guardado);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
+    // =========================
+    // PUT /api/productos/{id}
+    // =========================
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizar(
+            @PathVariable Long id,
+            @RequestBody(required = false) Producto datos) {
+
+        if (datos == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            Producto actualizado = productoService.actualizar(id, datos);
+            return ResponseEntity.ok(actualizado);
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // =========================
+    // PUT /api/productos/{id}/oferta/{descuento}
+    // =========================
     @PutMapping("/{id}/oferta/{descuento}")
     public ResponseEntity<?> ponerEnOferta(
             @PathVariable Long id,
             @PathVariable int descuento) {
 
-        if (descuento < 5 || descuento > 90) {
-            return ResponseEntity.badRequest().body("El descuento debe ser entre 5% y 90%");
+        try {
+            Producto producto = productoService.ponerEnOferta(id, descuento);
+            return ResponseEntity.ok(producto);
+        } catch (IllegalArgumentException e) {
+            // 🔴 RAMA IMPORTANTE PARA COBERTURA
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
         }
-
-        return productoRepository.findById(id).map(p -> {
-            p.setOferta(true);
-            p.setDescuento(descuento);
-            productoRepository.save(p);
-            return ResponseEntity.ok(p);
-        }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    // =========================
+    // PUT /api/productos/{id}/quitar-oferta
+    // =========================
     @PutMapping("/{id}/quitar-oferta")
     public ResponseEntity<?> quitarOferta(@PathVariable Long id) {
-        return productoRepository.findById(id).map(p -> {
-            p.setOferta(false);
-            p.setDescuento(0);
-            productoRepository.save(p);
-            return ResponseEntity.ok(p);
-        }).orElseGet(() -> ResponseEntity.notFound().build());
+        try {
+            Producto producto = productoService.quitarOferta(id);
+            return ResponseEntity.ok(producto);
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
+    // =========================
+    // DELETE /api/productos/{id}
+    // =========================
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
-        Optional<Producto> productoOpt = productoRepository.findById(id);
-        if (productoOpt.isPresent()) {
-            productoRepository.delete(productoOpt.get());
+        try {
+            productoService.eliminar(id);
             return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.notFound().build();
     }
 }

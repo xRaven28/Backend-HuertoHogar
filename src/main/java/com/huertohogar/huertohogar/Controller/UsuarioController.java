@@ -22,20 +22,37 @@ public class UsuarioController {
         this.usuarioRepository = usuarioRepository;
     }
 
+    // =========================
+    // GET /api/usuarios
+    // =========================
     @GetMapping
     public List<Usuario> listarTodos() {
         return usuarioRepository.findAll();
     }
 
+    // =========================
+    // GET /api/usuarios/{id}
+    // =========================
     @GetMapping("/{id}")
     public ResponseEntity<Usuario> obtener(@PathVariable Long id) {
         return usuarioRepository.findById(id)
                 .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/registrar")
-    public ResponseEntity<?> registrar(@RequestBody Usuario usuario) {
+    // =========================
+    // POST /api/usuarios   👈 FIX CLAVE PARA LOS TESTS
+    // =========================
+    @PostMapping
+    public ResponseEntity<?> registrarDirecto(@RequestBody Usuario usuario) {
+
+        if (usuario.getEmail() == null || usuario.getEmail().isBlank()) {
+            return ResponseEntity.badRequest().body("Email obligatorio");
+        }
+
+        if (usuario.getPassword() == null || usuario.getPassword().isBlank()) {
+            return ResponseEntity.badRequest().body("Password obligatorio");
+        }
 
         if (service.existeEmail(usuario.getEmail())) {
             return ResponseEntity.badRequest().body("El correo ya está registrado");
@@ -45,6 +62,17 @@ public class UsuarioController {
         return ResponseEntity.ok(nuevo);
     }
 
+    // =========================
+    // POST /api/usuarios/registrar (se mantiene)
+    // =========================
+    @PostMapping("/registrar")
+    public ResponseEntity<?> registrar(@RequestBody Usuario usuario) {
+        return registrarDirecto(usuario);
+    }
+
+    // =========================
+    // PUT /api/usuarios/{id}
+    // =========================
     @PutMapping("/{id}")
     public ResponseEntity<Usuario> actualizar(
             @PathVariable Long id,
@@ -59,15 +87,22 @@ public class UsuarioController {
                     u.setRol(datos.getRol());
                     return ResponseEntity.ok(usuarioRepository.save(u));
                 })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .orElse(ResponseEntity.notFound().build());
     }
 
+    // =========================
+    // POST /api/usuarios/cambiar-password-email
+    // =========================
     @PostMapping("/cambiar-password-email")
     public ResponseEntity<?> cambiarPasswordPorEmail(@RequestBody Map<String, String> body) {
 
         String email = body.get("email");
         String actual = body.get("passwordActual");
         String nueva = body.getOrDefault("passwordNueva", body.get("nuevaPassword"));
+
+        if (email == null || nueva == null) {
+            return ResponseEntity.badRequest().body("Datos incompletos");
+        }
 
         if (actual == null || actual.isBlank()) {
             return service.cambiarPasswordSinActual(email, nueva);
@@ -76,14 +111,24 @@ public class UsuarioController {
         return service.cambiarPasswordPorEmail(email, actual, nueva);
     }
 
+    // =========================
+    // PUT /api/usuarios/{id}/password
+    // =========================
     @PutMapping("/{id}/password")
     public ResponseEntity<?> cambiarPassword(
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
 
-        return service.cambiarPassword(id, body.get("passwordActual"), body.get("passwordNueva"));
+        return service.cambiarPassword(
+                id,
+                body.get("passwordActual"),
+                body.get("passwordNueva")
+        );
     }
 
+    // =========================
+    // DELETE /api/usuarios/{id}
+    // =========================
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
         if (!usuarioRepository.existsById(id)) {
@@ -93,6 +138,9 @@ public class UsuarioController {
         return ResponseEntity.ok("Usuario eliminado");
     }
 
+    // =========================
+    // PUT /api/usuarios/{id}/bloqueo
+    // =========================
     @PutMapping("/{id}/bloqueo")
     public ResponseEntity<?> cambiarBloqueo(
             @PathVariable Long id,
@@ -104,6 +152,6 @@ public class UsuarioController {
                     usuarioRepository.save(u);
                     return ResponseEntity.ok(u);
                 })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .orElse(ResponseEntity.notFound().build());
     }
 }

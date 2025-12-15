@@ -6,6 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Optional;
+
 @Service
 public class UsuarioService {
 
@@ -16,7 +19,28 @@ public class UsuarioService {
         this.repo = repo;
     }
 
+    // =========================
+    // LISTAR USUARIOS
+    // =========================
+    public List<Usuario> listarTodos() {
+        return repo.findAll();
+    }
+
+    // =========================
+    // OBTENER POR ID
+    // =========================
+    public Optional<Usuario> obtenerPorId(Long id) {
+        return repo.findById(id);
+    }
+
+    // =========================
+    // REGISTRAR
+    // =========================
     public Usuario registrar(Usuario u) {
+
+        if (u.getEmail() == null || u.getPassword() == null) {
+            throw new RuntimeException("Email y contraseña obligatorios");
+        }
 
         if (repo.findByEmail(u.getEmail()).isPresent()) {
             throw new RuntimeException("Email ya existe");
@@ -31,10 +55,50 @@ public class UsuarioService {
         return repo.save(u);
     }
 
-    public ResponseEntity<?> cambiarPasswordSinActual(String email, String nueva) {
-        Usuario usuario = repo.findByEmail(email).orElse(null);
+    // =========================
+    // ACTUALIZAR USUARIO
+    // =========================
+    public Optional<Usuario> actualizar(Long id, Usuario datos) {
+        return repo.findById(id).map(u -> {
+            u.setNombre(datos.getNombre());
+            u.setRut(datos.getRut());
+            u.setTelefono(datos.getTelefono());
+            u.setDireccion(datos.getDireccion());
+            u.setRol(datos.getRol());
+            return repo.save(u);
+        });
+    }
 
-        if (usuario == null) return ResponseEntity.status(404).body("Correo no registrado");
+    // =========================
+    // ELIMINAR USUARIO
+    // =========================
+    public boolean eliminar(Long id) {
+        if (!repo.existsById(id)) {
+            return false;
+        }
+        repo.deleteById(id);
+        return true;
+    }
+
+    // =========================
+    // BLOQUEAR / DESBLOQUEAR
+    // =========================
+    public Optional<Usuario> cambiarBloqueo(Long id, boolean bloqueado) {
+        return repo.findById(id).map(u -> {
+            u.setBloqueado(bloqueado);
+            return repo.save(u);
+        });
+    }
+
+    // =========================
+    // CAMBIOS DE PASSWORD
+    // =========================
+    public ResponseEntity<?> cambiarPasswordSinActual(String email, String nueva) {
+
+        Usuario usuario = repo.findByEmail(email).orElse(null);
+        if (usuario == null) {
+            return ResponseEntity.status(404).body("Correo no registrado");
+        }
 
         usuario.setPassword(passwordEncoder.encode(nueva));
         repo.save(usuario);
@@ -45,7 +109,9 @@ public class UsuarioService {
     public ResponseEntity<?> cambiarPasswordPorEmail(String email, String actual, String nueva) {
 
         Usuario usuario = repo.findByEmail(email).orElse(null);
-        if (usuario == null) return ResponseEntity.status(404).body("Correo no registrado");
+        if (usuario == null) {
+            return ResponseEntity.status(404).body("Correo no registrado");
+        }
 
         if (!passwordEncoder.matches(actual, usuario.getPassword())) {
             return ResponseEntity.status(400).body("Contraseña actual incorrecta");
@@ -60,7 +126,9 @@ public class UsuarioService {
     public ResponseEntity<?> cambiarPassword(Long id, String actual, String nueva) {
 
         Usuario usuario = repo.findById(id).orElse(null);
-        if (usuario == null) return ResponseEntity.notFound().build();
+        if (usuario == null) {
+            return ResponseEntity.notFound().build();
+        }
 
         if (!passwordEncoder.matches(actual, usuario.getPassword())) {
             return ResponseEntity.status(400).body("Contraseña actual incorrecta");
@@ -72,6 +140,9 @@ public class UsuarioService {
         return ResponseEntity.ok("Contraseña actualizada correctamente");
     }
 
+    // =========================
+    // VALIDACIONES
+    // =========================
     public boolean existeEmail(String email) {
         return repo.findByEmail(email).isPresent();
     }

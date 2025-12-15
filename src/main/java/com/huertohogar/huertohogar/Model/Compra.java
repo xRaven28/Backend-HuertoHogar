@@ -30,7 +30,11 @@ public class Compra {
     @JsonIgnoreProperties("compras")
     private Usuario usuario;
 
-    @OneToMany(mappedBy = "compra", cascade = CascadeType.ALL)
+    @OneToMany(
+        mappedBy = "compra",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true   // ✅ ESTA ES LA CLAVE
+    )
     private List<ItemCompra> items = new ArrayList<>();
 
     public Long getId() {

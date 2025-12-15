@@ -35,4 +35,7 @@ public class Producto {
     private boolean oferta = false;
 
     private Integer descuento = 0;
+    
+    private int stock;
+
 }
